@@ -4,9 +4,9 @@ Repository con le idee progettuali per il corso di Sistemi Embedded e IoT.
 
 ---
 
-## 🌟 Progetti Selezionati
+##  Progetti Selezionati
 
-### 1. Sistema di Irrigazione Intelligente ⭐⭐⭐⭐⭐
+### 1. Sistema di Irrigazione Intelligente 
 
 **Descrizione:**
 Sistema automatizzato per la gestione intelligente dell'irrigazione di giardini e campi agricoli.
@@ -38,7 +38,7 @@ Sistema automatizzato per la gestione intelligente dell'irrigazione di giardini 
 
 ---
 
-### 2. Smart Locker / Armadietti Intelligenti ⭐⭐⭐⭐⭐
+### 2. Smart Locker / Armadietti Intelligenti 
 
 **Descrizione:**
 Sistema di gestione intelligente per armadietti in palestre, uffici o università con assegnazione automatica e tracking occupazione.
@@ -84,7 +84,7 @@ Sistema di gestione intelligente per armadietti in palestre, uffici o universit�
 
 ---
 
-### 3. Monitoraggio Qualità Aria Indoor ⭐⭐⭐⭐⭐
+### 3. Monitoraggio Qualità Aria Indoor 
 
 **Descrizione:**
 Sistema di monitoraggio ambientale per spazi chiusi, particolarmente rilevante in contesti post-COVID per garantire ambienti salubri.
@@ -130,7 +130,7 @@ Sistema di monitoraggio ambientale per spazi chiusi, particolarmente rilevante i
 
 ---
 
-### 4. Sistema di Monitoraggio Serra/Coltivazione Indoor ⭐⭐⭐⭐
+### 4. Sistema di Monitoraggio Serra/Coltivazione Indoor 
 
 **Descrizione:**
 Sistema completo per il controllo e monitoraggio di serre o coltivazioni indoor con automazione e analisi crescita.
@@ -191,7 +191,7 @@ Sistema completo per il controllo e monitoraggio di serre o coltivazioni indoor 
 
 ---
 
-### 5. Smart Waste Management (Cestini Intelligenti) ⭐⭐⭐
+### 5. Smart Waste Management (Cestini Intelligenti) 
 
 **Descrizione:**
 Sistema di gestione intelligente dei rifiuti con monitoraggio riempimento e ottimizzazione raccolta.
@@ -250,7 +250,7 @@ Sistema di gestione intelligente dei rifiuti con monitoraggio riempimento e otti
 
 ---
 
-### 6. Sistema Anti-Spreco Alimentare per Mense/Ristoranti ⭐⭐
+### 6. Sistema Anti-Spreco Alimentare per Mense/Ristoranti 
 
 **Descrizione:**
 Sistema per monitorare e ridurre gli sprechi alimentari in contesti di ristorazione collettiva.
@@ -299,7 +299,7 @@ Sistema per monitorare e ridurre gli sprechi alimentari in contesti di ristorazi
 
 ---
 
-### 7. Sistema di Tracciamento Risorse Aziendali ⭐⭐
+### 7. Sistema di Tracciamento Risorse Aziendali 
 
 **Descrizione:**
 Sistema per tracciare la posizione e l'utilizzo di attrezzature aziendali mobili.
@@ -355,7 +355,7 @@ Sistema per tracciare la posizione e l'utilizzo di attrezzature aziendali mobili
 
 ---
 
-### 8. Sistema di Monitoraggio Consumi Energetici ⭐⭐⭐
+### 8. Sistema di Monitoraggio Consumi Energetici 
 
 **Descrizione:**
 Sistema per monitorare e ottimizzare i consumi energetici di edifici o abitazioni.
