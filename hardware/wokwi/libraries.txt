@@ -1,2 +1,0 @@
-# Wokwi Library Manager
-# No external libraries needed for simulation
