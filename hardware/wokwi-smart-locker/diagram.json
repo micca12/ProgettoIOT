@@ -5,7 +5,8 @@
   "title": "Smart Locker - Lettore RFID con Servo Sblocco",
   "parts": [
     { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
-    { "type": "wokwi-led", "id": "led_status", "top": -32.4, "left": -111.4, "attrs": { "color": "cyan" } },
+    { "type": "wokwi-led", "id": "led_green", "top": -32.4, "left": -111.4, "attrs": { "color": "green" } },
+    { "type": "wokwi-led", "id": "led_red", "top": -32.4, "left": -70.4, "attrs": { "color": "red" } },
     { "type": "wokwi-buzzer", "id": "buzzer", "top": -74.4, "left": -190.2, "attrs": { "volume": "0.1" } },
     { "type": "chip-rfid-rc522", "id": "rfid", "top": 29.82, "left": 168, "attrs": {} },
     { "type": "wokwi-servo", "id": "servo", "top": 249.8, "left": -96, "attrs": {} }
@@ -13,8 +14,10 @@
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
-    [ "led_status:A", "esp:26", "cyan", [ "v0" ] ],
-    [ "esp:GND.1", "led_status:C", "black", [ "h0" ] ],
+    [ "led_green:A", "esp:26", "green", [ "v0" ] ],
+    [ "esp:GND.1", "led_green:C", "black", [ "h0" ] ],
+    [ "led_red:A", "esp:25", "red", [ "v0" ] ],
+    [ "esp:GND.1", "led_red:C", "black", [ "h0" ] ],
     [ "esp:14", "buzzer:2", "gray", [ "h0" ] ],
     [ "esp:GND.1", "buzzer:1", "black", [ "h0" ] ],
     [ "rfid:SDA", "esp:5", "green", [ "h-48", "v76.8" ] ],

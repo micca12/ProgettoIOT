@@ -21,7 +21,8 @@
 
 // --- Pin definitions ---
 #define BUZZER_PIN      14
-#define STATUS_LED      26
+#define STATUS_LED_GREEN 26
+#define STATUS_LED_RED   25
 #define SERVO_PIN       27
 
 // --- WiFi Credentials ---
@@ -66,10 +67,12 @@ void setup() {
   delay(1000);
 
   pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(STATUS_LED, OUTPUT);
+  pinMode(STATUS_LED_GREEN, OUTPUT);
+  pinMode(STATUS_LED_RED, OUTPUT);
 
   digitalWrite(BUZZER_PIN, LOW);
-  digitalWrite(STATUS_LED, LOW);
+  digitalWrite(STATUS_LED_GREEN, LOW);
+  digitalWrite(STATUS_LED_RED, LOW);
   
   // Inizializza servo
   lockServo.attach(SERVO_PIN);
@@ -94,7 +97,7 @@ void loop() {
     Serial.println("-> Richiusura automatica");
     servoClose();
     lockerOpen = false;
-    digitalWrite(STATUS_LED, LOW);
+    digitalWrite(STATUS_LED_GREEN, LOW);
   }
 
   // Leggi NFC/RFID
@@ -193,29 +196,37 @@ bool callSupabaseIdentify(String badgeCode, String& response) {
     
     if (!error) {
       // Controlla se è un errore Supabase (oggetto con "message")
-      if (responseDoc.is<JsonObject>() && responseDoc.containsKey("message")) {
+      if (responseDoc.is<JsonObject>() && responseDoc["message"].is<String>()) {
         Serial.print("   ✗✗✗ ERRORE SUPABASE: ");
         Serial.println(responseDoc["message"].as<String>());
         return false;
       }
       
-      // Successo: array di oggetti
+      // Può essere un array o un oggetto singolo
+      JsonObject user;
+      
       if (responseDoc.is<JsonArray>() && responseDoc.size() > 0) {
-        JsonObject user = responseDoc[0];
-        if (user["authorized"].is<bool>()) {
-          bool authorized = user["authorized"];
-          if (authorized) {
-            Serial.print("   ✓ Utente: ");
-            Serial.print(user["nome"].as<String>());
-            Serial.print(" ");
-            Serial.println(user["cognome"].as<String>());
-          }
-          return authorized;
-        } else {
-          Serial.println("   ✗✗✗ ERRORE: Campo 'authorized' non trovato!");
-        }
+        // È un array: prendi il primo elemento
+        user = responseDoc[0];
+      } else if (responseDoc.is<JsonObject>()) {
+        // È un oggetto singolo: usalo direttamente
+        user = responseDoc.as<JsonObject>();
       } else {
-        Serial.println("   ✗✗✗ ERRORE: Risposta non è un array valido!");
+        Serial.println("   ✗✗✗ ERRORE: Formato risposta non valido!");
+        return false;
+      }
+      
+      if (user["authorized"].is<bool>()) {
+        bool authorized = user["authorized"];
+        if (authorized) {
+          Serial.print("   ✓ Utente: ");
+          Serial.print(user["nome"].as<String>());
+          Serial.print(" ");
+          Serial.println(user["cognome"].as<String>());
+        }
+        return authorized;
+      } else {
+        Serial.println("   ✗✗✗ ERRORE: Campo 'authorized' non trovato!");
       }
     } else {
       Serial.print("   ✗✗✗ ERRORE: Parse JSON fallito - ");
@@ -245,7 +256,7 @@ void requestAuthorization(String userId) {
     servoOpen();
     lockerOpen = true;
     unlockTime = millis();
-    digitalWrite(STATUS_LED, HIGH);
+    digitalWrite(STATUS_LED_GREEN, HIGH);
     Serial.print("Apertura per ");
     Serial.print(UNLOCK_TIME / 1000);
     Serial.println(" secondi");
@@ -269,21 +280,23 @@ void servoClose() {
   Serial.println("[SERVO] Chiusura lucchetto");
 }
 
-// Feedback - Accesso autorizzato (beep + LED verde)
+// Feedback - Accesso autorizzato (LED verde + beep lungo)
 void feedbackSuccess() {
+  digitalWrite(STATUS_LED_GREEN, HIGH);
   digitalWrite(BUZZER_PIN, HIGH);
-  digitalWrite(STATUS_LED, HIGH);
-  delay(1500);
+  delay(800);
   digitalWrite(BUZZER_PIN, LOW);
+  // LED rimane acceso durante apertura
 }
 
-// Feedback - Accesso negato (doppio beep)
+// Feedback - Accesso negato (LED rosso blink 3 volte)
 void feedbackDenied() {
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(200);
-  digitalWrite(BUZZER_PIN, LOW);
-  delay(150);
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(200);
-  digitalWrite(BUZZER_PIN, LOW);
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(STATUS_LED_RED, HIGH);
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(150);
+    digitalWrite(BUZZER_PIN, LOW);
+    digitalWrite(STATUS_LED_RED, LOW);
+    delay(150);
+  }
 }
