@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(where:*)",
+      "Bash(dir /s /b *.ino *.cpp *.h *.json *.toml *.ini)",
+      "WebFetch(domain:docs.wokwi.com)",
+      "WebSearch"
     ]
   }
 }

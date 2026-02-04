@@ -1,18 +1,23 @@
 /*
  * Smart Locker IoT - ESP32
- * Simulazione Wokwi (RFID simulato via Serial Monitor)
+ * Simulazione Wokwi con connessione WiFi a Supabase
  *
- * Lettore badge all'ingresso/uscita dell'edificio.
- * - Prima passata badge = INGRESSO: assegna armadietto libero
- * - Seconda passata badge = USCITA: rilascia armadietto
+ * Il badge si simula digitando l'UID nel Serial Monitor.
+ * L'ESP32 chiama la funzione badge_access() su Supabase che:
+ *   - Identifica l'utente dal badge_uid
+ *   - Se non ha locker -> checkin (assegna locker)
+ *   - Se ha locker -> checkout (rilascia locker)
  *
- * Badge di test:
- *   04:5A:2F:1B       -> Mario Rossi (studente)
- *   04:5A:2F:1B:3C:6D:80 -> Mario Rossi (alternativo)
- *   01:AB:CD:EF       -> Paolo Bianchi (studente)
+ * WiFi: Wokwi-GUEST (access point virtuale Wokwi, no password)
+ *
+ * Badge di test (devono corrispondere a users.badge_uid su Supabase):
+ *   04:5A:2F:1B  -> utente di test
  */
 
 #include <Arduino.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 
 // --- Pin definitions ---
 #define BUZZER_PIN  14
@@ -20,56 +25,24 @@
 #define RED_LED     25
 #define RELAY_PIN   27
 
-// --- Configurazione ---
-#define MAX_USERS   10
-#define MAX_LOCKERS 5
+// --- WiFi Wokwi ---
+const char* WIFI_SSID = "Wokwi-GUEST";
+const char* WIFI_PASSWORD = "";
 
-// --- Strutture dati ---
-struct User {
-  String badge_uid;
-  String badge_uid_alt;  // UID alternativo (7 byte)
-  String nome;
-  bool   attivo;
-};
+// --- Supabase ---
+const char* SUPABASE_URL = "https://pwvbgiwzatwotdqmvilc.supabase.co";
+const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3dmJnaXd6YXR3b3RkcW12aWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NDEzODQsImV4cCI6MjA4NTAxNzM4NH0.XPWYYNaWgELlf5kgDLU8vHQjFeNGpDAOnbmlSmqktXA";
 
-struct Locker {
-  String numero;
-  bool   occupato;
-  int    user_index;  // -1 = libero
-};
-
-struct Sessione {
-  bool   dentro;          // utente dentro l'edificio?
-  String locker_numero;   // armadietto assegnato
-};
-
-// --- Dati simulati (come da DB) ---
-User users[] = {
-  { "04:5A:2F:1B", "1", "Mario Rossi",   true },  // "1" = shortcut test
-  { "01:AB:CD:EF", "2", "Paolo Bianchi", true },   // "2" = shortcut test
-};
-const int NUM_USERS = sizeof(users) / sizeof(users[0]);
-
-Locker lockers[] = {
-  { "A01", false, -1 },
-  { "A02", false, -1 },
-  { "A03", false, -1 },
-  { "A04", false, -1 },
-  { "A05", false, -1 },
-};
-const int NUM_LOCKERS = sizeof(lockers) / sizeof(lockers[0]);
-
-Sessione sessioni[MAX_USERS];  // stato per ogni utente
-String inputBuffer = "";       // buffer input seriale
+// --- Buffer seriale ---
+String inputBuffer = "";
 
 // --- Prototipi ---
-int  findUser(String uid);
-int  assignLocker(int user_idx);
-void releaseLocker(int user_idx);
-void feedbackIngresso();
-void feedbackUscita();
-void feedbackErrore();
-void printStatoLockers();
+void connectWiFi();
+void handleBadge(String uid);
+String callBadgeAccess(String badge_uid);
+void feedbackCheckin(const char* locker);
+void feedbackCheckout(const char* locker);
+void feedbackErrore(const char* msg);
 
 // ===========================================================
 void setup() {
@@ -86,21 +59,23 @@ void setup() {
   digitalWrite(RED_LED, LOW);
   digitalWrite(RELAY_PIN, LOW);
 
-  // Inizializza sessioni
-  for (int i = 0; i < MAX_USERS; i++) {
-    sessioni[i].dentro = false;
-    sessioni[i].locker_numero = "";
-  }
-
   Serial.println("\n=== Smart Locker IoT - Controllo Accessi ===");
-  Serial.println("Lettore badge ingresso/uscita edificio");
-  Serial.println("Sistema pronto!\n");
-  printStatoLockers();
-  Serial.println("\nInserisci UID badge (es: 04:5A:2F:1B):");
+  Serial.println("Connessione a Supabase via WiFi...\n");
+
+  connectWiFi();
+
+  Serial.println("\nSistema pronto!");
+  Serial.println("Inserisci UID badge (es: 04:5A:2F:1B):");
 }
 
 // ===========================================================
 void loop() {
+  // Riconnetti WiFi se perso
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnesso, riconnessione...");
+    connectWiFi();
+  }
+
   while (Serial.available()) {
     char c = Serial.read();
     if (c == '\n' || c == '\r') {
@@ -109,59 +84,13 @@ void loop() {
         inputBuffer = "";
         continue;
       }
-      String input = inputBuffer;
+
+      String uid = inputBuffer;
       inputBuffer = "";
 
-      Serial.println("\n--- Badge Rilevato ---");
-      Serial.print("UID: ");
-      Serial.println(input);
+      handleBadge(uid);
 
-    // Cerca utente
-    int user_idx = findUser(input);
-    if (user_idx < 0) {
-      Serial.println("Badge non riconosciuto!");
-      feedbackErrore();
       Serial.println("\nInserisci UID badge:");
-      return;
-    }
-
-    Serial.print("Utente: ");
-    Serial.println(users[user_idx].nome);
-
-    if (!sessioni[user_idx].dentro) {
-      // ========== INGRESSO (check-in) ==========
-      Serial.println("-> Registrazione INGRESSO...");
-
-      int locker_idx = assignLocker(user_idx);
-      if (locker_idx < 0) {
-        Serial.println("ERRORE: Nessun armadietto disponibile!");
-        feedbackErrore();
-      } else {
-        sessioni[user_idx].dentro = true;
-        sessioni[user_idx].locker_numero = lockers[locker_idx].numero;
-
-        Serial.print("Armadietto assegnato: ");
-        Serial.println(lockers[locker_idx].numero);
-        Serial.println("INGRESSO registrato!");
-        feedbackIngresso();
-      }
-    } else {
-      // ========== USCITA (check-out) ==========
-      Serial.println("-> Registrazione USCITA...");
-      Serial.print("Armadietto rilasciato: ");
-      Serial.println(sessioni[user_idx].locker_numero);
-
-      releaseLocker(user_idx);
-      sessioni[user_idx].dentro = false;
-      sessioni[user_idx].locker_numero = "";
-
-      Serial.println("USCITA registrata. Arrivederci!");
-      feedbackUscita();
-    }
-
-    Serial.println();
-    printStatoLockers();
-    Serial.println("\nInserisci UID badge:");
     } else {
       inputBuffer += c;
     }
@@ -169,53 +98,153 @@ void loop() {
 }
 
 // ===========================================================
-// Trova utente dal badge UID, ritorna indice o -1
-int findUser(String uid) {
-  for (int i = 0; i < NUM_USERS; i++) {
-    if (!users[i].attivo) continue;
-    if (uid == users[i].badge_uid || uid == users[i].badge_uid_alt) {
-      return i;
-    }
+void connectWiFi() {
+  Serial.print("Connessione a WiFi");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD, 6);  // canale 6 per Wokwi (piu' veloce)
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
   }
-  return -1;
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println(" OK!");
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println(" FALLITO!");
+    Serial.println("Impossibile connettersi. Riprova...");
+  }
 }
 
-// Assegna primo armadietto libero, ritorna indice o -1
-int assignLocker(int user_idx) {
-  for (int i = 0; i < NUM_LOCKERS; i++) {
-    if (!lockers[i].occupato) {
-      lockers[i].occupato = true;
-      lockers[i].user_index = user_idx;
-      return i;
-    }
+// ===========================================================
+void handleBadge(String uid) {
+  Serial.println("\n--- Badge Rilevato ---");
+  Serial.print("UID: ");
+  Serial.println(uid);
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("ERRORE: WiFi non connesso!");
+    feedbackErrore("WiFi non connesso");
+    return;
   }
-  return -1;
+
+  Serial.println("Invio richiesta a Supabase...");
+  String response = callBadgeAccess(uid);
+
+  if (response.length() == 0) {
+    feedbackErrore("Nessuna risposta dal server");
+    return;
+  }
+
+  // Parse JSON response
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, response);
+
+  if (err) {
+    Serial.print("Errore parsing JSON: ");
+    Serial.println(err.c_str());
+    feedbackErrore("Errore risposta server");
+    return;
+  }
+
+  bool success = doc["success"] | false;
+
+  if (!success) {
+    const char* errMsg = doc["error"] | "Errore sconosciuto";
+    Serial.print("NEGATO: ");
+    Serial.println(errMsg);
+    feedbackErrore(errMsg);
+    return;
+  }
+
+  // Successo
+  const char* azione = doc["azione"] | "unknown";
+  const char* utente = doc["utente"] | "?";
+  const char* messaggio = doc["messaggio"] | "";
+
+  Serial.print("Utente: ");
+  Serial.println(utente);
+  Serial.print("Azione: ");
+  Serial.println(azione);
+  Serial.println(messaggio);
+
+  if (strcmp(azione, "checkin") == 0) {
+    const char* locker = doc["locker_assegnato"] | "?";
+    Serial.print("Armadietto assegnato: ");
+    Serial.println(locker);
+    feedbackCheckin(locker);
+  } else if (strcmp(azione, "checkout") == 0) {
+    const char* locker = doc["locker_rilasciato"] | "?";
+    Serial.print("Armadietto rilasciato: ");
+    Serial.println(locker);
+    feedbackCheckout(locker);
+  }
 }
 
-// Rilascia armadietto dell'utente
-void releaseLocker(int user_idx) {
-  for (int i = 0; i < NUM_LOCKERS; i++) {
-    if (lockers[i].user_index == user_idx) {
-      lockers[i].occupato = false;
-      lockers[i].user_index = -1;
-      return;
-    }
+// ===========================================================
+String callBadgeAccess(String badge_uid) {
+  HTTPClient http;
+
+  String url = String(SUPABASE_URL) + "/rest/v1/rpc/badge_access";
+
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+
+  // Payload
+  JsonDocument doc;
+  doc["p_badge_uid"] = badge_uid;
+  doc["p_metodo"] = "badge";
+
+  String body;
+  serializeJson(doc, body);
+
+  int httpCode = http.POST(body);
+  String response = "";
+
+  if (httpCode > 0) {
+    response = http.getString();
+    Serial.print("HTTP ");
+    Serial.print(httpCode);
+    Serial.print(": ");
+    Serial.println(response);
+  } else {
+    Serial.print("HTTP Error: ");
+    Serial.println(httpCode);
   }
+
+  http.end();
+  return response;
 }
 
 // --- Feedback hardware ---
 
-void feedbackIngresso() {
-  // Beep breve + LED verde
-  digitalWrite(BUZZER_PIN, HIGH);
+void feedbackCheckin(const char* locker) {
+  // Beep + LED verde + relay (simula apertura)
+  Serial.print(">>> INGRESSO - Locker ");
+  Serial.print(locker);
+  Serial.println(" <<<");
+
   digitalWrite(GREEN_LED, HIGH);
+  digitalWrite(RELAY_PIN, HIGH);
+  digitalWrite(BUZZER_PIN, HIGH);
   delay(1500);
   digitalWrite(BUZZER_PIN, LOW);
+  delay(1500);
+  digitalWrite(RELAY_PIN, LOW);
   digitalWrite(GREEN_LED, LOW);
 }
 
-void feedbackUscita() {
+void feedbackCheckout(const char* locker) {
   // Doppio beep + LED verde
+  Serial.print(">>> USCITA - Locker ");
+  Serial.print(locker);
+  Serial.println(" rilasciato <<<");
+
   digitalWrite(GREEN_LED, HIGH);
   digitalWrite(BUZZER_PIN, HIGH);
   delay(300);
@@ -227,28 +256,14 @@ void feedbackUscita() {
   digitalWrite(GREEN_LED, LOW);
 }
 
-void feedbackErrore() {
-  // Beep lungo + LED rosso
-  digitalWrite(BUZZER_PIN, HIGH);
+void feedbackErrore(const char* msg) {
+  Serial.print(">>> ERRORE: ");
+  Serial.print(msg);
+  Serial.println(" <<<");
+
   digitalWrite(RED_LED, HIGH);
+  digitalWrite(BUZZER_PIN, HIGH);
   delay(2000);
   digitalWrite(BUZZER_PIN, LOW);
   digitalWrite(RED_LED, LOW);
-}
-
-// Stampa stato armadietti
-void printStatoLockers() {
-  Serial.println("--- Stato Armadietti ---");
-  for (int i = 0; i < NUM_LOCKERS; i++) {
-    Serial.print("  ");
-    Serial.print(lockers[i].numero);
-    Serial.print(": ");
-    if (lockers[i].occupato) {
-      Serial.print("OCCUPATO (");
-      Serial.print(users[lockers[i].user_index].nome);
-      Serial.println(")");
-    } else {
-      Serial.println("LIBERO");
-    }
-  }
 }

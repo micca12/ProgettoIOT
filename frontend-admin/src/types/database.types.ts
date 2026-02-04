@@ -49,6 +49,7 @@ export interface Database {
           updated_at?: string
           last_login?: string | null
         }
+        Relationships: []
       }
       lockers: {
         Row: {
@@ -90,6 +91,7 @@ export interface Database {
           posizione?: string | null
           note?: string | null
         }
+        Relationships: []
       }
       access_logs: {
         Row: {
@@ -106,6 +108,35 @@ export interface Database {
           timestamp: string
           duration_ms: number | null
         }
+        Insert: {
+          id?: number
+          user_id?: string | null
+          locker_numero?: string | null
+          azione: 'checkin' | 'unlock' | 'checkout'
+          metodo: 'badge' | 'nfc' | 'qr'
+          code_scanned?: string | null
+          success?: boolean
+          error_message?: string | null
+          ip_address?: string | null
+          user_agent?: string | null
+          timestamp?: string
+          duration_ms?: number | null
+        }
+        Update: {
+          id?: number
+          user_id?: string | null
+          locker_numero?: string | null
+          azione?: 'checkin' | 'unlock' | 'checkout'
+          metodo?: 'badge' | 'nfc' | 'qr'
+          code_scanned?: string | null
+          success?: boolean
+          error_message?: string | null
+          ip_address?: string | null
+          user_agent?: string | null
+          timestamp?: string
+          duration_ms?: number | null
+        }
+        Relationships: []
       }
       special_tags: {
         Row: {
@@ -118,7 +149,31 @@ export interface Database {
           attivo: boolean
           created_at: string
         }
+        Insert: {
+          id?: number
+          tipo: 'ingresso' | 'uscita'
+          badge_uid?: string | null
+          nfc_uid?: string | null
+          qr_code: string
+          posizione: string
+          attivo?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          tipo?: 'ingresso' | 'uscita'
+          badge_uid?: string | null
+          nfc_uid?: string | null
+          qr_code?: string
+          posizione?: string
+          attivo?: boolean
+          created_at?: string
+        }
+        Relationships: []
       }
+    }
+    Views: {
+      [_ in never]: never
     }
     Functions: {
       identify_code: {
@@ -137,6 +192,12 @@ export interface Database {
         Args: { p_user_id: string; p_code: string; p_metodo: string }
         Returns: Json
       }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }
