@@ -1,0 +1,289 @@
+/*
+ * Smart Locker IoT - ESP32 (Singolo Armadietto)
+ * Simulazione Wokwi - Lettore NFC/RFID integrato
+ *
+ * Funzionalità:
+ * - Legge tessera/telefono NFC
+ * - Contatta il database per verificare prenotazione
+ * - Se autorizzato, sblocca l'armadietto
+ * - Pulsante emergenza per sblocco manuale
+ *
+ * Prova con:
+ *   04:5A:2F:1B -> Mario Rossi
+ *   01:AB:CD:EF -> Paolo Bianchi
+ */
+
+#include <Arduino.h>
+#include <Servo.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+// --- Pin definitions ---
+#define BUZZER_PIN      14
+#define STATUS_LED      26
+#define SERVO_PIN       27
+
+// --- WiFi Credentials ---
+const char* SSID = "Wokwi-GUEST";
+const char* PASSWORD = "";
+
+// --- Supabase Configuration ---
+const char* SUPABASE_URL = "https://pwvbgiwzatwotdqmvilc.supabase.co";
+const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3dmJnaXd6YXR3b3RkcW12aWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NDEzODQsImV4cCI6MjA4NTAxNzM4NH0.XPWYYNaWgELlf5kgDLU8vHQjFeNGpDAOnbmlSmqktXA";
+
+#define LOCKER_ID       "A01"
+#define UNLOCK_TIME     3000  // Milliseconde - tempo apertura
+
+// === Servo motor ===
+Servo lockServo;
+#define SERVO_CLOSED    0     // Gradi - lucchetto chiuso
+#define SERVO_OPEN      90    // Gradi - lucchetto aperto
+
+// === Badge autorizzati per questo armadietto (fallback offline - NON USATO) ===
+// Test badge dal database:
+// - Mario Rossi: 04:5A:2F:1B:3C:6D:80
+// - Paolo Bianchi: 04:7F:3C:2D:5E:8A:92
+// Ora il sistema richiede SEMPRE il contatto con Supabase
+
+// === Variabili globali ===
+String inputBuffer = "";
+bool lockerOpen = false;
+unsigned long unlockTime = 0;
+
+// === Prototipi ===
+void connectToWiFi();
+bool callSupabaseIdentify(String badgeCode, String& response);
+void servoOpen();
+void servoClose();
+void requestAuthorization(String userId);
+void feedbackSuccess();
+void feedbackDenied();
+
+// ===========================================================
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(STATUS_LED, OUTPUT);
+
+  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(STATUS_LED, LOW);
+  
+  // Inizializza servo
+  lockServo.attach(SERVO_PIN);
+  lockServo.write(SERVO_CLOSED);
+
+  Serial.println("\n========================================");
+  Serial.println("  Smart Locker IoT - Armadietto");
+  Serial.print("  ID: ");
+  Serial.println(LOCKER_ID);
+  Serial.println("========================================");
+  
+  // Connessione WiFi
+  connectToWiFi();
+  
+  Serial.println("\nAvvicina il tuo NFC/Tessera RFID...\n");
+}
+
+// ===========================================================
+void loop() {
+  // Auto-chiusura
+  if (lockerOpen && (millis() - unlockTime > UNLOCK_TIME)) {
+    Serial.println("-> Richiusura automatica");
+    servoClose();
+    lockerOpen = false;
+    digitalWrite(STATUS_LED, LOW);
+  }
+
+  // Leggi NFC/RFID
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      inputBuffer.trim();
+      if (inputBuffer.length() == 0) {
+        inputBuffer = "";
+        continue;
+      }
+
+      String userId = inputBuffer;
+      inputBuffer = "";
+
+      Serial.println("\n--- NFC/RFID Rilevato ---");
+      Serial.print("User ID: ");
+      Serial.println(userId);
+      
+      requestAuthorization(userId);
+      
+    } else {
+      inputBuffer += c;
+    }
+  }
+}
+
+// ===========================================================
+// Connette al WiFi
+void connectToWiFi() {
+  Serial.println("\n-> Connessione WiFi...");
+  Serial.print("   SSID: ");
+  Serial.println(SSID);
+  
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, PASSWORD);
+  
+  int timeout = 0;
+  while (WiFi.status() != WL_CONNECTED && timeout < 20) {
+    delay(500);
+    Serial.print(".");
+    timeout++;
+  }
+  
+  Serial.println();
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("✓ Connesso al WiFi!");
+    Serial.print("  IP: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("✗✗✗ ERRORE: Connessione WiFi fallita!");
+  }
+}
+
+// ===========================================================
+// Verifica autorizzazione via API Supabase
+bool callSupabaseIdentify(String badgeCode, String& response) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("✗✗✗ ERRORE CRITICO: WiFi non connesso!");
+    Serial.println("    Impossibile contattare il database.");
+    return false;
+  }
+  
+  HTTPClient http;
+  String url = String(SUPABASE_URL) + "/rest/v1/rpc/identify_user_by_badge";
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+  
+  // Prepara payload JSON
+  JsonDocument doc;
+  doc["p_badge_code"] = badgeCode;
+  
+  String requestBody;
+  serializeJson(doc, requestBody);
+  
+  Serial.print("-> POST: ");
+  Serial.println(url);
+  Serial.print("   Payload: ");
+  Serial.println(requestBody);
+  
+  int httpResponseCode = http.POST(requestBody);
+  
+  if (httpResponseCode > 0) {
+    response = http.getString();
+    Serial.print("   Response (HTTP ");
+    Serial.print(httpResponseCode);
+    Serial.print("): ");
+    Serial.println(response);
+    
+    // Parsa risposta JSON
+    JsonDocument responseDoc;
+    DeserializationError error = deserializeJson(responseDoc, response);
+    
+    if (!error) {
+      // Controlla se è un errore Supabase (oggetto con "message")
+      if (responseDoc.is<JsonObject>() && responseDoc.containsKey("message")) {
+        Serial.print("   ✗✗✗ ERRORE SUPABASE: ");
+        Serial.println(responseDoc["message"].as<String>());
+        return false;
+      }
+      
+      // Successo: array di oggetti
+      if (responseDoc.is<JsonArray>() && responseDoc.size() > 0) {
+        JsonObject user = responseDoc[0];
+        if (user["authorized"].is<bool>()) {
+          bool authorized = user["authorized"];
+          if (authorized) {
+            Serial.print("   ✓ Utente: ");
+            Serial.print(user["nome"].as<String>());
+            Serial.print(" ");
+            Serial.println(user["cognome"].as<String>());
+          }
+          return authorized;
+        } else {
+          Serial.println("   ✗✗✗ ERRORE: Campo 'authorized' non trovato!");
+        }
+      } else {
+        Serial.println("   ✗✗✗ ERRORE: Risposta non è un array valido!");
+      }
+    } else {
+      Serial.print("   ✗✗✗ ERRORE: Parse JSON fallito - ");
+      Serial.println(error.c_str());
+    }
+  } else {
+    Serial.print("   ✗✗✗ ERRORE HTTP: ");
+    Serial.println(httpResponseCode);
+  }
+  
+  http.end();
+  return false;
+}
+
+// ===========================================================
+// Contatta il database per verificare l'autorizzazione
+void requestAuthorization(String userId) {
+  Serial.println("-> Verifica autorizzazione via Supabase...");
+  
+  String response = "";
+  bool authorized = callSupabaseIdentify(userId, response);
+  
+  Serial.println();
+  if (authorized) {
+    Serial.println("✓ AUTORIZZATO!");
+    feedbackSuccess();
+    servoOpen();
+    lockerOpen = true;
+    unlockTime = millis();
+    digitalWrite(STATUS_LED, HIGH);
+    Serial.print("Apertura per ");
+    Serial.print(UNLOCK_TIME / 1000);
+    Serial.println(" secondi");
+  } else {
+    Serial.println("✗ NEGATO - Badge non riconosciuto");
+    feedbackDenied();
+  }
+  
+  Serial.println("\nAvvicina il tuo NFC/Tessera RFID...");
+}
+
+// Apre il servo (sblocca)
+void servoOpen() {
+  lockServo.write(SERVO_OPEN);
+  Serial.println("[SERVO] Apertura lucchetto");
+}
+
+// Chiude il servo (blocca)
+void servoClose() {
+  lockServo.write(SERVO_CLOSED);
+  Serial.println("[SERVO] Chiusura lucchetto");
+}
+
+// Feedback - Accesso autorizzato (beep + LED verde)
+void feedbackSuccess() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  digitalWrite(STATUS_LED, HIGH);
+  delay(1500);
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+// Feedback - Accesso negato (doppio beep)
+void feedbackDenied() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(200);
+  digitalWrite(BUZZER_PIN, LOW);
+  delay(150);
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(200);
+  digitalWrite(BUZZER_PIN, LOW);
+}
