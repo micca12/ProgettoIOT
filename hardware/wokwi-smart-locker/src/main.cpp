@@ -54,10 +54,10 @@ unsigned long unlockTime = 0;
 
 // === Prototipi ===
 void connectToWiFi();
-bool callSupabaseIdentify(String badgeCode, String& response);
+bool callLockerUnlock(String badgeCode, String& response);
 void servoOpen();
 void servoClose();
-void requestAuthorization(String userId);
+void requestAuthorization(String badgeCode);
 void feedbackSuccess();
 void feedbackDenied();
 
@@ -153,8 +153,9 @@ void connectToWiFi() {
 }
 
 // ===========================================================
-// Verifica autorizzazione via API Supabase
-bool callSupabaseIdentify(String badgeCode, String& response) {
+// Verifica autorizzazione via API Supabase - locker_unlock
+// Verifica che l'utente abbia QUESTO specifico armadietto assegnato
+bool callLockerUnlock(String badgeCode, String& response) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("✗✗✗ ERRORE CRITICO: WiFi non connesso!");
     Serial.println("    Impossibile contattare il database.");
@@ -162,16 +163,18 @@ bool callSupabaseIdentify(String badgeCode, String& response) {
   }
   
   HTTPClient http;
-  String url = String(SUPABASE_URL) + "/rest/v1/rpc/identify_user_by_badge";
+  String url = String(SUPABASE_URL) + "/rest/v1/rpc/locker_unlock";
   
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("apikey", SUPABASE_ANON_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
   
-  // Prepara payload JSON
+  // Prepara payload JSON con badge E locker ID
   JsonDocument doc;
-  doc["p_badge_code"] = badgeCode;
+  doc["p_badge_uid"] = badgeCode;
+  doc["p_locker_numero"] = LOCKER_ID;
+  doc["p_metodo"] = "nfc";
   
   String requestBody;
   serializeJson(doc, requestBody);
@@ -216,17 +219,23 @@ bool callSupabaseIdentify(String badgeCode, String& response) {
         return false;
       }
       
-      if (user["authorized"].is<bool>()) {
-        bool authorized = user["authorized"];
-        if (authorized) {
+      // La nuova funzione locker_unlock ritorna {success: bool, ...}
+      if (user["success"].is<bool>()) {
+        bool success = user["success"];
+        if (success) {
           Serial.print("   ✓ Utente: ");
-          Serial.print(user["nome"].as<String>());
-          Serial.print(" ");
-          Serial.println(user["cognome"].as<String>());
+          Serial.println(user["utente"].as<String>());
+          Serial.print("   ✓ Locker: ");
+          Serial.println(user["locker"].as<String>());
+          Serial.print("   ");
+          Serial.println(user["messaggio"].as<String>());
+        } else {
+          Serial.print("   ✗ Errore: ");
+          Serial.println(user["error"].as<String>());
         }
-        return authorized;
+        return success;
       } else {
-        Serial.println("   ✗✗✗ ERRORE: Campo 'authorized' non trovato!");
+        Serial.println("   ✗✗✗ ERRORE: Campo 'success' non trovato!");
       }
     } else {
       Serial.print("   ✗✗✗ ERRORE: Parse JSON fallito - ");
@@ -243,15 +252,19 @@ bool callSupabaseIdentify(String badgeCode, String& response) {
 
 // ===========================================================
 // Contatta il database per verificare l'autorizzazione
-void requestAuthorization(String userId) {
+void requestAuthorization(String badgeCode) {
   Serial.println("-> Verifica autorizzazione via Supabase...");
+  Serial.print("   Badge: ");
+  Serial.println(badgeCode);
+  Serial.print("   Locker: ");
+  Serial.println(LOCKER_ID);
   
   String response = "";
-  bool authorized = callSupabaseIdentify(userId, response);
+  bool authorized = callLockerUnlock(badgeCode, response);
   
   Serial.println();
   if (authorized) {
-    Serial.println("✓ AUTORIZZATO!");
+    Serial.println("✓ AUTORIZZATO - Armadietto corretto!");
     feedbackSuccess();
     servoOpen();
     lockerOpen = true;
@@ -261,7 +274,7 @@ void requestAuthorization(String userId) {
     Serial.print(UNLOCK_TIME / 1000);
     Serial.println(" secondi");
   } else {
-    Serial.println("✗ NEGATO - Badge non riconosciuto");
+    Serial.println("✗ NEGATO - Verifica fallita");
     feedbackDenied();
   }
   

@@ -2,3 +2,7 @@
 version = 1
 elf = ".pio/build/esp32dev/firmware.elf"
 firmware = ".pio/build/esp32dev/firmware.bin"
+
+# Abilita connessione a internet reale (Wokwi IoT Gateway)
+[net]
+enabled = true
