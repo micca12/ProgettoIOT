@@ -40,7 +40,6 @@ interface AccessLog {
   created_at: string
 }
 
-// Hook per ottenere il profilo utente dalla tabella users
 export function useUserProfile() {
   const { user } = useAuthContext()
 
@@ -57,7 +56,7 @@ export function useUserProfile() {
         .single()
 
       if (error) {
-        console.error("Error fetching user profile:", error)
+        console.log("profilo non trovato", error.message)
         return null
       }
 
@@ -67,7 +66,7 @@ export function useUserProfile() {
   })
 }
 
-// Hook per ottenere l'armadietto assegnato all'utente
+// locker assegnato all'utente (se ce l'ha)
 export function useAssignedLocker() {
   const { data: profile } = useUserProfile()
 
@@ -83,10 +82,10 @@ export function useAssignedLocker() {
         .eq("stato", "occupato")
         .single()
 
+      // PGRST116 = nessun risultato, vuol dire che non ha locker
       if (error) {
-        // PGRST116 = nessun risultato trovato (OK, utente non ha locker)
         if (error.code === "PGRST116") return null
-        console.error("Error fetching assigned locker:", error)
+        console.log("err locker", error)
         return null
       }
 
@@ -96,7 +95,6 @@ export function useAssignedLocker() {
   })
 }
 
-// Hook per eseguire check-in o check-out via badge_access
 export function useBadgeAccess() {
   const queryClient = useQueryClient()
   const { data: profile } = useUserProfile()
@@ -107,29 +105,29 @@ export function useBadgeAccess() {
         throw new Error("Badge UID non configurato per questo utente")
       }
 
-      // Chiama la funzione badge_access con il badge dell'utente
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log("chiamo badge_access con", profile.badge_uid)
+
+      // rpc va castato perche i tipi non matchano
       const { data, error } = await (supabase.rpc as any)("badge_access", {
         p_badge_uid: profile.badge_uid,
         p_metodo: "app",
       })
 
       if (error) {
-        console.error("Error calling badge_access:", error)
+        console.log("badge_access fallito", error)
         throw new Error(error.message)
       }
 
       return data as BadgeAccessResult
     },
     onSuccess: () => {
-      // Invalidate queries per ricaricare i dati
       queryClient.invalidateQueries({ queryKey: ["assignedLocker"] })
       queryClient.invalidateQueries({ queryKey: ["accessLogs"] })
     },
   })
 }
 
-// Hook per ottenere gli ultimi accessi dell'utente
+// ultimi log dell utente
 export function useAccessLogs(limit = 5) {
   const { data: profile } = useUserProfile()
 
@@ -146,7 +144,7 @@ export function useAccessLogs(limit = 5) {
         .limit(limit)
 
       if (error) {
-        console.error("Error fetching access logs:", error)
+        console.log("err log", error)
         return []
       }
 

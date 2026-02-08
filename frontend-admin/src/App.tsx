@@ -8,7 +8,6 @@ import Login from "@/pages/Login"
 import Dashboard from "@/pages/Dashboard"
 import Users from "@/pages/Users"
 import Lockers from "@/pages/Lockers"
-import AccessLogs from "@/pages/AccessLogs"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,7 +30,6 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/users" element={<Users />} />
                 <Route path="/lockers" element={<Lockers />} />
-                <Route path="/access-logs" element={<AccessLogs />} />
               </Route>
             </Route>
           </Routes>

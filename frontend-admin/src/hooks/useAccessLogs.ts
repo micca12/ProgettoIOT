@@ -25,6 +25,7 @@ export function useAccessLogs(filters: AccessLogFilters = {}) {
         .order("timestamp", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1)
 
+      // filtri opzionali
       if (azione) query = query.eq("azione", azione)
       if (metodo) query = query.eq("metodo", metodo)
       if (dateFrom) query = query.gte("timestamp", dateFrom)
@@ -33,21 +34,6 @@ export function useAccessLogs(filters: AccessLogFilters = {}) {
       const { data, error, count } = await query
       if (error) throw error
       return { data: data as AccessLogRow[], count: count ?? 0 }
-    },
-  })
-}
-
-export function useRecentAccessLogs(limit = 10) {
-  return useQuery({
-    queryKey: ["access_logs", "recent", limit],
-    queryFn: async (): Promise<AccessLogRow[]> => {
-      const { data, error } = await supabase
-        .from("access_logs")
-        .select("*")
-        .order("timestamp", { ascending: false })
-        .limit(limit)
-      if (error) throw error
-      return data
     },
   })
 }

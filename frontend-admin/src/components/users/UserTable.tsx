@@ -17,7 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useUsers, useToggleUserActive } from "@/hooks/useUsers"
+import { TableStatus } from "@/components/ui/table-status"
+import { useUsers, useUpdateUser } from "@/hooks/useUsers"
 import { UserDialog } from "./UserDialog"
 import type { Database } from "@/types/database.types"
 
@@ -25,12 +26,13 @@ type UserRow = Database["public"]["Tables"]["users"]["Row"]
 
 export function UserTable() {
   const { data: users, isLoading, isError, error } = useUsers()
-  const toggleActive = useToggleUserActive()
+  const updateUser = useUpdateUser()
   const [search, setSearch] = useState("")
   const [editUser, setEditUser] = useState<UserRow | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const filtered = users?.filter((u) => {
+  // filtro ricerca
+  const utentiFiltrati = users?.filter((u) => {
     const q = search.toLowerCase()
     return (
       u.nome.toLowerCase().includes(q) ||
@@ -46,7 +48,8 @@ export function UserTable() {
   }
 
   const handleToggle = (user: UserRow) => {
-    toggleActive.mutate({ id: user.id, attivo: !user.attivo })
+    console.log("toggle", user.email, !user.attivo)
+    updateUser.mutate({ id: user.id, attivo: !user.attivo })
   }
 
   return (
@@ -82,26 +85,15 @@ export function UserTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center">
-                  Caricamento...
-                </TableCell>
-              </TableRow>
-            ) : isError ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-destructive">
-                  Errore: {error?.message ?? "Impossibile caricare gli utenti"}
-                </TableCell>
-              </TableRow>
-            ) : filtered?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  Nessun utente trovato
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered?.map((user) => (
+            <TableStatus
+              colSpan={7}
+              isLoading={isLoading}
+              isError={isError}
+              error={error}
+              isEmpty={!utentiFiltrati?.length}
+              emptyMessage="Nessun utente trovato"
+            >
+              {utentiFiltrati?.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>{user.nome}</TableCell>
                   <TableCell>{user.cognome}</TableCell>
@@ -148,8 +140,8 @@ export function UserTable() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
+              ))}
+            </TableStatus>
           </TableBody>
         </Table>
       </div>

@@ -19,35 +19,15 @@ export function useLockers(statoFilter?: LockerRow["stato"]) {
       }
       const { data, error } = await query
       if (error) throw error
+      console.log("locker ok", data)
       return data
     },
   })
 }
 
-export function useLockerStats() {
-  return useQuery({
-    queryKey: ["lockers", "stats"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("lockers").select("stato")
-      if (error) throw error
-
-      const stats = {
-        totale: data.length,
-        libero: 0,
-        occupato: 0,
-        manutenzione: 0,
-        fuori_servizio: 0,
-      }
-      for (const locker of data) {
-        stats[locker.stato]++
-      }
-      return stats
-    },
-  })
-}
-
+// crea nuovo locker
 export function useCreateLocker() {
-  const queryClient = useQueryClient()
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: async (locker: LockerInsert) => {
       const { data, error } = await supabase
@@ -59,7 +39,7 @@ export function useCreateLocker() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lockers"] })
+      qc.invalidateQueries({ queryKey: ["lockers"] })
     },
   })
 }

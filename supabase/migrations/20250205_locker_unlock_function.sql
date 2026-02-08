@@ -1,12 +1,4 @@
--- ============================================
--- Funzione: locker_unlock
--- ============================================
--- Sblocco armadietto specifico via badge/NFC
--- Verifica che l'utente abbia l'armadietto corretto assegnato
---
--- Chiamata: SELECT locker_unlock('04:5A:2F:1B', 'A01', 'badge');
--- Ritorna: JSON con success, messaggio, info utente
--- ============================================
+-- sblocco armadietto dal dispositivo smart locker
 
 CREATE OR REPLACE FUNCTION public.locker_unlock(
   p_badge_uid TEXT,
@@ -35,7 +27,6 @@ BEGIN
     p_metodo := 'badge';
   END IF;
 
-  -- 1. Cerca utente dal badge_uid
   SELECT * INTO v_user
   FROM users
   WHERE badge_uid = p_badge_uid AND attivo = true;
@@ -51,7 +42,6 @@ BEGIN
     );
   END IF;
 
-  -- 2. Cerca il locker specifico
   SELECT * INTO v_locker
   FROM lockers
   WHERE numero = p_locker_numero;
@@ -68,9 +58,7 @@ BEGIN
     );
   END IF;
 
-  -- 3. Verifica che questo locker sia assegnato a questo utente
   IF v_locker.user_id IS NULL OR v_locker.user_id != v_user.id THEN
-    -- Locker non assegnato a questo utente
     INSERT INTO access_logs (user_id, azione, metodo, code_scanned, locker_numero, success, error_message)
     VALUES (v_user.id, 'unlock', p_metodo, p_badge_uid, p_locker_numero, false, 'Locker non assegnato a questo utente');
 
@@ -82,7 +70,6 @@ BEGIN
     );
   END IF;
 
-  -- 4. Verifica stato locker (potrebbe essere in manutenzione)
   IF v_locker.stato = 'manutenzione' OR v_locker.stato = 'fuori_servizio' THEN
     INSERT INTO access_logs (user_id, azione, metodo, code_scanned, locker_numero, success, error_message)
     VALUES (v_user.id, 'unlock', p_metodo, p_badge_uid, p_locker_numero, false, 'Locker in manutenzione');
@@ -95,13 +82,10 @@ BEGIN
     );
   END IF;
 
-  -- 5. SUCCESS! Autorizza unlock
-  -- Aggiorna timestamp ultimo accesso
   UPDATE lockers
   SET timestamp_ultimo_accesso = NOW()
   WHERE id = v_locker.id;
 
-  -- Log accesso riuscito
   INSERT INTO access_logs (user_id, azione, metodo, code_scanned, locker_numero, success)
   VALUES (v_user.id, 'unlock', p_metodo, p_badge_uid, p_locker_numero, true);
 
@@ -116,9 +100,6 @@ BEGIN
 END;
 $$;
 
--- Permessi: anon e authenticated possono chiamare questa funzione
+-- anche qui serve anon per l'esp32
 GRANT EXECUTE ON FUNCTION public.locker_unlock(TEXT, TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.locker_unlock(TEXT, TEXT, TEXT) TO authenticated;
-
--- Commento
-COMMENT ON FUNCTION public.locker_unlock IS 'Sblocca armadietto specifico se badge corrisponde all''utente assegnato';

@@ -1,8 +1,4 @@
--- ============================================
--- Smart Locker IoT - PostgreSQL Functions
--- ============================================
-
--- Funzione: identify_code
+-- funzione per identificare un codice (nfc, qr, badge)
 CREATE OR REPLACE FUNCTION identify_code(p_code TEXT)
 RETURNS JSON
 LANGUAGE plpgsql
@@ -44,7 +40,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION identify_code(TEXT) TO authenticated;
 
--- Funzione: checkin_user (versione semplificata per test)
+-- checkin: assegna un armadietto libero
 CREATE OR REPLACE FUNCTION checkin_user(
   p_user_id UUID,
   p_code TEXT,
@@ -78,7 +74,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION checkin_user(UUID, TEXT, TEXT) TO authenticated;
 
--- Funzione: unlock_locker (versione semplificata)
+-- sblocca il locker assegnato
 CREATE OR REPLACE FUNCTION unlock_locker(
   p_user_id UUID,
   p_code TEXT,
@@ -106,7 +102,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION unlock_locker(UUID, TEXT, TEXT) TO authenticated;
 
--- Funzione: checkout_user (versione semplificata)
+-- checkout: rilascia l'armadietto
 CREATE OR REPLACE FUNCTION checkout_user(
   p_user_id UUID,
   p_code TEXT,

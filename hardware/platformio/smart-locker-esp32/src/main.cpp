@@ -1,7 +1,3 @@
-/*
- * Smart Locker IoT - ESP32 RFID System
- * PlatformIO Version
- */
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -9,44 +5,25 @@
 #include <SPI.h>
 #include <ArduinoJson.h>
 
-// ========================================
-// CONFIGURAZIONE PIN
-// ========================================
+// pin
 #define SS_PIN 5
 #define RST_PIN 22
 #define RELAY_PIN 27
 #define LED_GREEN_PIN 25
 #define LED_RED_PIN 26
 
-// ========================================
-// CONFIGURAZIONE WIFI
-// ========================================
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// ========================================
-// CONFIGURAZIONE SUPABASE
-// ========================================
 const char* SUPABASE_URL = "https://pwvbgiwzatwotdqmvilc.supabase.co";
 const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3dmJnaXd6YXR3b3RkcW12aWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0NDEzODQsImV4cCI6MjA4NTAxNzM4NH0.XPWYYNaWgELlf5kgDLU8vHQjFeNGpDAOnbmlSmqktXA";
 
-// ========================================
-// OGGETTI GLOBALI
-// ========================================
 MFRC522 rfid(SS_PIN, RST_PIN);
 
-// ========================================
-// SETUP
-// ========================================
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  Serial.println("\n\n=================================");
-  Serial.println("   Smart Locker IoT - ESP32");
-  Serial.println("=================================\n");
-
-  // Configura pin
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(LED_GREEN_PIN, OUTPUT);
   pinMode(LED_RED_PIN, OUTPUT);
@@ -55,79 +32,53 @@ void setup() {
   digitalWrite(LED_GREEN_PIN, LOW);
   digitalWrite(LED_RED_PIN, LOW);
 
-  // Inizializza SPI
   SPI.begin();
-
-  // Inizializza RFID
   rfid.PCD_Init();
-  Serial.println("✓ RFID Reader inizializzato");
 
-  // Connetti a WiFi
   connectWiFi();
-
-  Serial.println("\n✓ Sistema pronto!");
-  Serial.println("Avvicina un badge RFID...\n");
+  Serial.println("Sistema pronto");
 }
 
-// ========================================
-// LOOP PRINCIPALE
-// ========================================
 void loop() {
-  // Controlla se c'è un nuovo badge
   if (!rfid.PICC_IsNewCardPresent()) {
     return;
   }
 
-  // Leggi il badge
   if (!rfid.PICC_ReadCardSerial()) {
     return;
   }
 
-  // Ottieni UID del badge
   String badgeUID = getCardUID();
 
-  Serial.println("\n--- Badge Rilevato ---");
-  Serial.print("UID: ");
+  Serial.print("Badge: ");
   Serial.println(badgeUID);
 
-  // Processa il badge
   handleBadgeScan(badgeUID);
 
-  // Halt PICC
   rfid.PICC_HaltA();
   rfid.PCD_StopCrypto1();
 
   delay(2000);
 }
 
-// ========================================
-// FUNZIONI WIFI
-// ========================================
 void connectWiFi() {
-  Serial.print("Connessione WiFi");
+  Serial.print("Connessione WiFi...");
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
-    Serial.print(".");
     attempts++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✓ WiFi connesso!");
-    Serial.print("IP: ");
-    Serial.println(WiFi.localIP());
+    Serial.println("connesso");
   } else {
-    Serial.println("\n✗ WiFi NON connesso!");
-    Serial.println("⚠ Modalità offline - simulazione locale");
+    Serial.println("fallito (offline)");
   }
 }
 
-// ========================================
-// FUNZIONI RFID
-// ========================================
 String getCardUID() {
   String uid = "";
   for (byte i = 0; i < rfid.uid.size; i++) {
@@ -144,27 +95,22 @@ String getCardUID() {
 }
 
 void handleBadgeScan(String uid) {
-  // Accendi LED durante elaborazione
   digitalWrite(LED_GREEN_PIN, HIGH);
 
-  // Se WiFi non connesso, usa modalità offline
+  // se non c'e wifi vado in offline
   if (WiFi.status() != WL_CONNECTED) {
     handleOfflineMode(uid);
     return;
   }
 
-  // Chiama Supabase per identificare il badge
-  Serial.println("→ Invio richiesta a Supabase...");
-
   String response = callSupabaseIdentify(uid);
+  Serial.println(response);
 
   if (response.length() > 0) {
-    // Badge riconosciuto
-    Serial.println("✓ Badge riconosciuto!");
+    Serial.println("Autorizzato");
     unlockLocker();
   } else {
-    // Badge non riconosciuto
-    Serial.println("✗ Badge NON riconosciuto!");
+    Serial.println("Accesso negato");
     blinkError();
   }
 
@@ -172,23 +118,18 @@ void handleBadgeScan(String uid) {
 }
 
 void handleOfflineMode(String uid) {
-  Serial.println("→ Modalità offline");
-
-  // Controlla badge noti (hardcoded per test)
+  // badge di test hardcoded per quando non c'e internet
   if (uid == "04:5A:2F:1B:3C:6D:80") {
-    Serial.println("✓ Badge riconosciuto (offline): Mario Rossi");
+    Serial.println("Autorizzato (offline)");
     unlockLocker();
   } else {
-    Serial.println("✗ Badge sconosciuto");
+    Serial.println("Accesso negato");
     blinkError();
   }
 
   digitalWrite(LED_GREEN_PIN, LOW);
 }
 
-// ========================================
-// CHIAMATE API SUPABASE
-// ========================================
 String callSupabaseIdentify(String code) {
   if (WiFi.status() != WL_CONNECTED) {
     return "";
@@ -196,7 +137,6 @@ String callSupabaseIdentify(String code) {
 
   HTTPClient http;
 
-  // Endpoint Supabase RPC
   String url = String(SUPABASE_URL) + "/rest/v1/rpc/identify_code";
 
   http.begin(url);
@@ -204,31 +144,21 @@ String callSupabaseIdentify(String code) {
   http.addHeader("apikey", SUPABASE_ANON_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
 
-  // Payload JSON
-  StaticJsonDocument<200> doc;
+  JsonDocument doc;
   doc["p_code"] = code;
 
-  String requestBody;
-  serializeJson(doc, requestBody);
+  String body;
+  serializeJson(doc, body);
 
-  Serial.print("Request: ");
-  Serial.println(requestBody);
-
-  // Invia richiesta POST
-  int httpResponseCode = http.POST(requestBody);
+  int httpCode = http.POST(body);
 
   String response = "";
 
-  if (httpResponseCode > 0) {
-    Serial.print("Response code: ");
-    Serial.println(httpResponseCode);
-
+  if (httpCode > 0) {
     response = http.getString();
-    Serial.print("Response: ");
-    Serial.println(response);
   } else {
-    Serial.print("Error: ");
-    Serial.println(httpResponseCode);
+    Serial.print("Errore HTTP ");
+    Serial.println(httpCode);
   }
 
   http.end();
@@ -236,13 +166,7 @@ String callSupabaseIdentify(String code) {
   return response;
 }
 
-// ========================================
-// CONTROLLO HARDWARE
-// ========================================
 void unlockLocker() {
-  Serial.println("→ Sblocco armadietto...");
-
-  // Attiva relay per 3 secondi
   digitalWrite(RELAY_PIN, HIGH);
   digitalWrite(LED_GREEN_PIN, HIGH);
 
@@ -250,12 +174,9 @@ void unlockLocker() {
 
   digitalWrite(RELAY_PIN, LOW);
   digitalWrite(LED_GREEN_PIN, LOW);
-
-  Serial.println("✓ Armadietto sbloccato!");
 }
 
 void blinkError() {
-  // Blink LED rosso 3 volte
   for (int i = 0; i < 3; i++) {
     digitalWrite(LED_RED_PIN, HIGH);
     delay(200);

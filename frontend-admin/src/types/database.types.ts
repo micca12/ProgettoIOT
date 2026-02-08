@@ -1,11 +1,3 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
-
 export interface Database {
   public: {
     Tables: {
@@ -32,9 +24,6 @@ export interface Database {
           badge_uid?: string | null
           tipo?: 'studente' | 'admin'
           attivo?: boolean
-          created_at?: string
-          updated_at?: string
-          last_login?: string | null
         }
         Update: {
           id?: string
@@ -45,9 +34,6 @@ export interface Database {
           badge_uid?: string | null
           tipo?: 'studente' | 'admin'
           attivo?: boolean
-          created_at?: string
-          updated_at?: string
-          last_login?: string | null
         }
         Relationships: []
       }
@@ -66,28 +52,19 @@ export interface Database {
           note: string | null
         }
         Insert: {
-          id?: number
           numero: string
-          nfc_tag_uid?: string | null
           qr_code: string
+          nfc_tag_uid?: string | null
           stato?: 'libero' | 'occupato' | 'manutenzione' | 'fuori_servizio'
-          user_id?: string | null
-          timestamp_assegnazione?: string | null
-          timestamp_ultimo_accesso?: string | null
-          created_at?: string
           posizione?: string | null
           note?: string | null
         }
         Update: {
-          id?: number
           numero?: string
-          nfc_tag_uid?: string | null
           qr_code?: string
+          nfc_tag_uid?: string | null
           stato?: 'libero' | 'occupato' | 'manutenzione' | 'fuori_servizio'
           user_id?: string | null
-          timestamp_assegnazione?: string | null
-          timestamp_ultimo_accesso?: string | null
-          created_at?: string
           posizione?: string | null
           note?: string | null
         }
@@ -109,32 +86,13 @@ export interface Database {
           duration_ms: number | null
         }
         Insert: {
-          id?: number
-          user_id?: string | null
-          locker_numero?: string | null
           azione: 'checkin' | 'unlock' | 'checkout'
           metodo: 'badge' | 'nfc' | 'qr'
-          code_scanned?: string | null
           success?: boolean
-          error_message?: string | null
-          ip_address?: string | null
-          user_agent?: string | null
-          timestamp?: string
-          duration_ms?: number | null
         }
         Update: {
-          id?: number
-          user_id?: string | null
-          locker_numero?: string | null
           azione?: 'checkin' | 'unlock' | 'checkout'
           metodo?: 'badge' | 'nfc' | 'qr'
-          code_scanned?: string | null
-          success?: boolean
-          error_message?: string | null
-          ip_address?: string | null
-          user_agent?: string | null
-          timestamp?: string
-          duration_ms?: number | null
         }
         Relationships: []
       }
@@ -150,24 +108,13 @@ export interface Database {
           created_at: string
         }
         Insert: {
-          id?: number
           tipo: 'ingresso' | 'uscita'
-          badge_uid?: string | null
-          nfc_uid?: string | null
           qr_code: string
           posizione: string
-          attivo?: boolean
-          created_at?: string
         }
         Update: {
-          id?: number
           tipo?: 'ingresso' | 'uscita'
-          badge_uid?: string | null
-          nfc_uid?: string | null
-          qr_code?: string
-          posizione?: string
           attivo?: boolean
-          created_at?: string
         }
         Relationships: []
       }
@@ -176,22 +123,7 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      identify_code: {
-        Args: { p_code: string }
-        Returns: Json
-      }
-      checkin_user: {
-        Args: { p_user_id: string; p_code: string; p_metodo: string }
-        Returns: Json
-      }
-      unlock_locker: {
-        Args: { p_user_id: string; p_code: string; p_metodo: string }
-        Returns: Json
-      }
-      checkout_user: {
-        Args: { p_user_id: string; p_code: string; p_metodo: string }
-        Returns: Json
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never

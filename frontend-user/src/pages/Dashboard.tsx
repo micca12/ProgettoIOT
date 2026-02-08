@@ -11,8 +11,7 @@ import { it } from "date-fns/locale"
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user, signOut } = useAuthContext()
-  
-  // Hooks per dati utente e locker
+
   const { data: profile, isLoading: profileLoading } = useUserProfile()
   const { data: assignedLocker, isLoading: lockerLoading } = useAssignedLocker()
   const { data: accessLogs, isLoading: logsLoading } = useAccessLogs(5)
@@ -30,9 +29,10 @@ export default function Dashboard() {
   }
 
   const handleBadgeAccess = async () => {
+    console.log("badge access click")
     try {
       const result = await badgeAccess.mutateAsync()
-      
+
       if (result.success) {
         if (result.azione === "checkin") {
           toast.success(`Check-in riuscito! Armadietto ${result.locker_assegnato} assegnato`)
@@ -53,7 +53,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="mx-auto max-w-2xl space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Smart Locker</h1>
@@ -67,15 +66,14 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {/* Main Card - Check-in / Check-out */}
         <Card>
           <CardHeader>
             <CardTitle>
               {assignedLocker ? "Il tuo Armadietto" : "Nessun Armadietto"}
             </CardTitle>
             <CardDescription>
-              {assignedLocker 
-                ? `Armadietto ${assignedLocker.numero} assegnato` 
+              {assignedLocker
+                ? `Armadietto ${assignedLocker.numero} assegnato`
                 : "Effettua il check-in per ottenere un armadietto"}
             </CardDescription>
           </CardHeader>
@@ -86,19 +84,18 @@ export default function Dashboard() {
               </div>
             ) : assignedLocker ? (
               <>
-                {/* Locker assegnato */}
-                <div className="rounded-lg border-2 border-green-500 bg-green-50 p-6 text-center dark:bg-green-950">
+                <div className="rounded-lg border-2 border-green-500 bg-green-50 p-6 text-center">
                   <DoorOpen className="mx-auto mb-2 size-12 text-green-600" />
-                  <p className="text-3xl font-bold text-green-700 dark:text-green-400">
+                  <p className="text-3xl font-bold text-green-700">
                     {assignedLocker.numero}
                   </p>
-                  <p className="text-sm text-green-600 dark:text-green-500">
+                  <p className="text-sm text-green-600">
                     Assegnato il {format(new Date(assignedLocker.timestamp_assegnazione), "dd MMM yyyy HH:mm", { locale: it })}
                   </p>
                 </div>
 
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   variant="destructive"
                   onClick={handleBadgeAccess}
                   disabled={badgeAccess.isPending || !profile?.badge_uid}
@@ -113,15 +110,14 @@ export default function Dashboard() {
               </>
             ) : (
               <>
-                {/* Nessun locker */}
                 <div className="rounded-lg border border-dashed border-muted p-8 text-center">
                   <DoorOpen className="mx-auto mb-2 size-12 text-muted-foreground" />
                   <p className="text-muted-foreground">Nessun armadietto assegnato</p>
                   <p className="text-sm text-muted-foreground">Effettua il check-in per ottenerne uno</p>
                 </div>
 
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   onClick={handleBadgeAccess}
                   disabled={badgeAccess.isPending || !profile?.badge_uid}
                 >
@@ -136,8 +132,8 @@ export default function Dashboard() {
             )}
 
             {!profile?.badge_uid && (
-              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950">
-                <p className="text-sm text-yellow-700 dark:text-yellow-300">
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                <p className="text-sm text-yellow-700">
                   ⚠️ <strong>Attenzione:</strong> Non hai un badge UID configurato. Contatta l'amministratore per associare il tuo badge.
                 </p>
               </div>
@@ -145,7 +141,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Info Cards */}
+        {/* todo: scan nfc dal telefono */}
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>

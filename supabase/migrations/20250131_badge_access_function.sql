@@ -1,12 +1,4 @@
--- Funzione unica per accesso via badge dall'ESP32.
--- L'ESP32 usa la anon key (no sessione utente), quindi serve
--- una funzione SECURITY DEFINER che fa tutto internamente:
---   1. Cerca utente dal badge_uid
---   2. Se l'utente ha un locker occupato -> checkout (uscita)
---   3. Se l'utente non ha locker -> checkin (ingresso, assegna locker)
---   4. Logga tutto in access_logs
---
--- Chiamata: SELECT badge_access('04:5A:2F:1B', 'badge');
+-- funzione per l'accesso da esp32 con badge
 
 CREATE OR REPLACE FUNCTION public.badge_access(
   p_badge_uid TEXT,
@@ -31,7 +23,6 @@ BEGIN
     p_metodo := 'badge';
   END IF;
 
-  -- 1. Cerca utente dal badge_uid
   SELECT * INTO v_user
   FROM users
   WHERE badge_uid = p_badge_uid AND attivo = true;
@@ -47,13 +38,12 @@ BEGIN
     );
   END IF;
 
-  -- 2. Controlla se l'utente ha gia' un locker occupato
   SELECT * INTO v_locker
   FROM lockers
   WHERE user_id = v_user.id AND stato = 'occupato';
 
   IF FOUND THEN
-    -- ========== CHECKOUT (uscita) ==========
+    -- CHECKOUT
     UPDATE lockers
     SET stato = 'libero',
         user_id = NULL,
@@ -71,8 +61,7 @@ BEGIN
       'messaggio', 'Uscita registrata. Arrivederci!'
     );
   ELSE
-    -- ========== CHECKIN (ingresso) ==========
-    -- Cerca primo locker libero
+    -- CHECKIN
     SELECT * INTO v_free_locker
     FROM lockers
     WHERE stato = 'libero'
@@ -112,6 +101,6 @@ BEGIN
 END;
 $$;
 
--- Permetti all'anon key di chiamare questa funzione (usata dall'ESP32)
+-- serve anon perche l'esp32 non ha login
 GRANT EXECUTE ON FUNCTION public.badge_access(TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.badge_access(TEXT, TEXT) TO authenticated;

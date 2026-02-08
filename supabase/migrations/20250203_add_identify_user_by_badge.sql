@@ -1,9 +1,4 @@
--- ============================================
--- Smart Locker IoT - Nuova Funzione per Badge Utente
--- ============================================
-
--- Funzione: identify_user_by_badge
--- Cerca un utente per badge_uid e restituisce le info per lo smart locker
+-- cerca utente per badge uid
 CREATE OR REPLACE FUNCTION identify_user_by_badge(p_badge_code TEXT)
 RETURNS JSON
 LANGUAGE plpgsql

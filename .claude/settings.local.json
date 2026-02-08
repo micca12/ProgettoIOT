@@ -1,18 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(echo:*)",
-      "Bash(tree:*)",
-      "Bash(find:*)",
-      "Bash(npm uninstall:*)",
-      "Bash(npm install:*)",
-      "Bash(npx shadcn@latest add:*)",
+      "Bash(git -C \"C:\\\\Users\\\\micca\\\\Desktop\\\\Progetti\\\\ProgettoIOT\" log --all --format=\"%H %s\")",
+      "Bash(git -C \"C:\\\\Users\\\\micca\\\\Desktop\\\\Progetti\\\\ProgettoIOT\" log --all --format=\"%b\")",
+      "Bash(dir:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run build:*)",
-      "Bash(where:*)",
-      "Bash(dir /s /b *.ino *.cpp *.h *.json *.toml *.ini)",
-      "WebFetch(domain:docs.wokwi.com)",
-      "WebSearch"
+      "Bash(npm uninstall:*)",
+      "Bash(del \"C:\\\\Users\\\\micca\\\\Desktop\\\\Progetti\\\\ProgettoIOT\\\\frontend-admin\\\\src\\\\pages\\\\AccessLogs.tsx\")"
     ]
   }
 }

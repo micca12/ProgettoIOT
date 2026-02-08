@@ -1,7 +1,4 @@
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -23,16 +20,14 @@ import type { Database } from "@/types/database.types"
 
 type UserRow = Database["public"]["Tables"]["users"]["Row"]
 
-const userSchema = z.object({
-  email: z.string().email("Email non valida"),
-  nome: z.string().min(1, "Nome obbligatorio"),
-  cognome: z.string().min(1, "Cognome obbligatorio"),
-  telefono: z.string().optional(),
-  badge_uid: z.string().optional(),
-  tipo: z.enum(["studente", "admin"]),
-})
-
-type UserFormValues = z.infer<typeof userSchema>
+const emptyForm = {
+  email: "",
+  nome: "",
+  cognome: "",
+  telefono: "",
+  badge_uid: "",
+  tipo: "studente" as UserRow["tipo"],
+}
 
 interface UserDialogProps {
   open: boolean
@@ -45,28 +40,11 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
   const updateUser = useUpdateUser()
   const isEditing = !!user
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
-    defaultValues: {
-      email: "",
-      nome: "",
-      cognome: "",
-      telefono: "",
-      badge_uid: "",
-      tipo: "studente",
-    },
-  })
+  const [form, setForm] = useState(emptyForm)
 
   useEffect(() => {
     if (user) {
-      reset({
+      setForm({
         email: user.email,
         nome: user.nome,
         cognome: user.cognome,
@@ -75,22 +53,16 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
         tipo: user.tipo,
       })
     } else {
-      reset({
-        email: "",
-        nome: "",
-        cognome: "",
-        telefono: "",
-        badge_uid: "",
-        tipo: "studente",
-      })
+      setForm(emptyForm)
     }
-  }, [user, reset])
+  }, [user])
 
-  const onSubmit = async (values: UserFormValues) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     const payload = {
-      ...values,
-      telefono: values.telefono || null,
-      badge_uid: values.badge_uid || null,
+      ...form,
+      telefono: form.telefono || null,
+      badge_uid: form.badge_uid || null,
     }
 
     if (isEditing) {
@@ -103,49 +75,43 @@ export function UserDialog({ open, onOpenChange, user }: UserDialogProps) {
 
   const isPending = createUser.isPending || updateUser.isPending
 
+  const set = (field: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [field]: e.target.value }))
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Modifica utente" : "Nuovo utente"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="nome">Nome</Label>
-              <Input id="nome" {...register("nome")} />
-              {errors.nome && (
-                <p className="text-xs text-destructive">{errors.nome.message}</p>
-              )}
+              <Input id="nome" value={form.nome} onChange={set("nome")} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="cognome">Cognome</Label>
-              <Input id="cognome" {...register("cognome")} />
-              {errors.cognome && (
-                <p className="text-xs text-destructive">{errors.cognome.message}</p>
-              )}
+              <Input id="cognome" value={form.cognome} onChange={set("cognome")} required />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" {...register("email")} />
-            {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
-            )}
+            <Input id="email" type="email" value={form.email} onChange={set("email")} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="telefono">Telefono</Label>
-            <Input id="telefono" {...register("telefono")} />
+            <Input id="telefono" value={form.telefono} onChange={set("telefono")} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="badge_uid">Badge UID</Label>
-            <Input id="badge_uid" {...register("badge_uid")} />
+            <Input id="badge_uid" value={form.badge_uid} onChange={set("badge_uid")} />
           </div>
           <div className="space-y-2">
             <Label>Tipo</Label>
             <Select
-              value={watch("tipo")}
-              onValueChange={(v) => setValue("tipo", v as "studente" | "admin")}
+              value={form.tipo}
+              onValueChange={(v) => setForm((f) => ({ ...f, tipo: v as "studente" | "admin" }))}
             >
               <SelectTrigger>
                 <SelectValue />

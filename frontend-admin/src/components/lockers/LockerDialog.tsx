@@ -1,7 +1,4 @@
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -23,16 +20,14 @@ import type { Database } from "@/types/database.types"
 
 type LockerRow = Database["public"]["Tables"]["lockers"]["Row"]
 
-const lockerSchema = z.object({
-  numero: z.string().min(1, "Numero obbligatorio"),
-  qr_code: z.string().min(1, "QR Code obbligatorio"),
-  nfc_tag_uid: z.string().optional(),
-  posizione: z.string().optional(),
-  note: z.string().optional(),
-  stato: z.enum(["libero", "occupato", "manutenzione", "fuori_servizio"]),
-})
-
-type LockerFormValues = z.infer<typeof lockerSchema>
+const emptyForm = {
+  numero: "",
+  qr_code: "",
+  nfc_tag_uid: "",
+  posizione: "",
+  note: "",
+  stato: "libero" as LockerRow["stato"],
+}
 
 interface LockerDialogProps {
   open: boolean
@@ -45,28 +40,11 @@ export function LockerDialog({ open, onOpenChange, locker }: LockerDialogProps) 
   const updateLocker = useUpdateLocker()
   const isEditing = !!locker
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<LockerFormValues>({
-    resolver: zodResolver(lockerSchema),
-    defaultValues: {
-      numero: "",
-      qr_code: "",
-      nfc_tag_uid: "",
-      posizione: "",
-      note: "",
-      stato: "libero",
-    },
-  })
+  const [form, setForm] = useState(emptyForm)
 
   useEffect(() => {
     if (locker) {
-      reset({
+      setForm({
         numero: locker.numero,
         qr_code: locker.qr_code,
         nfc_tag_uid: locker.nfc_tag_uid ?? "",
@@ -75,24 +53,20 @@ export function LockerDialog({ open, onOpenChange, locker }: LockerDialogProps) 
         stato: locker.stato,
       })
     } else {
-      reset({
-        numero: "",
-        qr_code: "",
-        nfc_tag_uid: "",
-        posizione: "",
-        note: "",
-        stato: "libero",
-      })
+      setForm(emptyForm)
     }
-  }, [locker, reset])
+  }, [locker])
 
-  const onSubmit = async (values: LockerFormValues) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    // i campi vuoti li mando come null
     const payload = {
-      ...values,
-      nfc_tag_uid: values.nfc_tag_uid || null,
-      posizione: values.posizione || null,
-      note: values.note || null,
+      ...form,
+      nfc_tag_uid: form.nfc_tag_uid || null,
+      posizione: form.posizione || null,
+      note: form.note || null,
     }
+    console.log("submit locker", payload)
 
     if (isEditing) {
       await updateLocker.mutateAsync({ id: locker.id, ...payload })
@@ -104,6 +78,9 @@ export function LockerDialog({ open, onOpenChange, locker }: LockerDialogProps) 
 
   const isPending = createLocker.isPending || updateLocker.isPending
 
+  const set = (field: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [field]: e.target.value }))
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -112,43 +89,35 @@ export function LockerDialog({ open, onOpenChange, locker }: LockerDialogProps) 
             {isEditing ? "Modifica armadietto" : "Nuovo armadietto"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="numero">Numero</Label>
-              <Input id="numero" {...register("numero")} />
-              {errors.numero && (
-                <p className="text-xs text-destructive">{errors.numero.message}</p>
-              )}
+              <Input id="numero" value={form.numero} onChange={set("numero")} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="qr_code">QR Code</Label>
-              <Input id="qr_code" {...register("qr_code")} />
-              {errors.qr_code && (
-                <p className="text-xs text-destructive">{errors.qr_code.message}</p>
-              )}
+              <Input id="qr_code" value={form.qr_code} onChange={set("qr_code")} required />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="nfc_tag_uid">NFC Tag UID</Label>
-            <Input id="nfc_tag_uid" {...register("nfc_tag_uid")} />
+            <Input id="nfc_tag_uid" value={form.nfc_tag_uid} onChange={set("nfc_tag_uid")} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="posizione">Posizione</Label>
-            <Input id="posizione" {...register("posizione")} />
+            <Input id="posizione" value={form.posizione} onChange={set("posizione")} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="note">Note</Label>
-            <Input id="note" {...register("note")} />
+            <Input id="note" value={form.note} onChange={set("note")} />
           </div>
           {isEditing && (
             <div className="space-y-2">
               <Label>Stato</Label>
               <Select
-                value={watch("stato")}
-                onValueChange={(v) =>
-                  setValue("stato", v as LockerFormValues["stato"])
-                }
+                value={form.stato}
+                onValueChange={(v) => setForm((f) => ({ ...f, stato: v as LockerRow["stato"] }))}
               >
                 <SelectTrigger>
                   <SelectValue />

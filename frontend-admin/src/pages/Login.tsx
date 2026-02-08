@@ -39,6 +39,7 @@ export default function Login() {
     try {
       await signIn(email, password)
     } catch (err) {
+      console.log("login fallito", err)
       setError(
         err instanceof Error ? err.message : "Errore durante il login"
       )

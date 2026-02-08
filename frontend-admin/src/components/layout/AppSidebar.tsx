@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Users,
   Lock,
-  ClipboardList,
   LogOut,
 } from "lucide-react"
 import {
@@ -20,11 +19,11 @@ import {
 } from "@/components/ui/sidebar"
 import { useAuthContext } from "@/components/auth/AuthProvider"
 
+// voci del menu
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/" },
   { title: "Utenti", icon: Users, path: "/users" },
   { title: "Armadietti", icon: Lock, path: "/lockers" },
-  { title: "Log Accessi", icon: ClipboardList, path: "/access-logs" },
 ]
 
 export function AppSidebar() {

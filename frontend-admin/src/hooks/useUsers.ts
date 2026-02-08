@@ -14,7 +14,10 @@ export function useUsers() {
         .from("users")
         .select("*")
         .order("cognome", { ascending: true })
-      if (error) throw error
+      if (error) {
+        console.log("errore users", error)
+        throw error
+      }
       return data
     },
   })
@@ -24,6 +27,7 @@ export function useCreateUser() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (user: UserInsert) => {
+      console.log("creo utente", user.email)
       const { data, error } = await supabase
         .from("users")
         .insert(user)
@@ -45,25 +49,6 @@ export function useUpdateUser() {
       const { data, error } = await supabase
         .from("users")
         .update(updates)
-        .eq("id", id)
-        .select()
-        .single()
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["users"] })
-    },
-  })
-}
-
-export function useToggleUserActive() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, attivo }: { id: string; attivo: boolean }) => {
-      const { data, error } = await supabase
-        .from("users")
-        .update({ attivo })
         .eq("id", id)
         .select()
         .single()

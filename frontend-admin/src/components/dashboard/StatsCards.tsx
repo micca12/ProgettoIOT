@@ -1,4 +1,4 @@
-import { Users, Lock, Wrench, ClipboardList } from "lucide-react"
+import { Users, ClipboardList } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDashboardStats } from "@/hooks/useDashboardStats"
 
@@ -11,18 +11,6 @@ export function StatsCards() {
       value: stats?.personeEdificio ?? 0,
       icon: Users,
       description: "Armadietti occupati",
-    },
-    {
-      title: "Armadietti liberi",
-      value: stats ? `${stats.armadiettiLiberi} / ${stats.armadiettiTotali}` : "0 / 0",
-      icon: Lock,
-      description: "Disponibili / Totali",
-    },
-    {
-      title: "In manutenzione",
-      value: stats?.armadiettiManutenzione ?? 0,
-      icon: Wrench,
-      description: "Armadietti non disponibili",
     },
     {
       title: "Accessi oggi",
@@ -41,7 +29,7 @@ export function StatsCards() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2">
       {cards.map((card) => (
         <Card key={card.title}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
